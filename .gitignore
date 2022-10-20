@@ -1,3 +1,4 @@
 .DS_Store
 src/DRAGNGraph/__pycache__/
 src/DRAGNGraph/*.png
+src/DRAGNGraph/imgs/*.ps
