@@ -13,6 +13,11 @@ from nltk.draw.tree import TreeView
 from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow,\
      QAction, QGroupBox, QFormLayout, QHBoxLayout, QVBoxLayout, QLabel, QLineEdit,\
         QPushButton, QGridLayout, QTextEdit, QTextBrowser
+
+import matplotlib
+matplotlib.use('Qt5Agg')
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT as NavigationToolbar
+from matplotlib.figure import Figure
 #Image.gs_windows_binary = r'C:\Program Files\gs\gs10.00.0\bin\gswin64c.exe'
 
 class MainWindow(QMainWindow):
@@ -106,22 +111,33 @@ class MainWindow(QMainWindow):
         self._halfLayout.addWidget(groupBox, 3, 0)
 
     def submitClicked(self):
+        print("here0.0")
         if self.inputField.text() != '' or self.aei == True:
             self.chatBox.insertPlainText("[{}] ".format(self.line) + "USER: " + self.inputField.text() + '\n\n')
             self.line += 1
             self.reply(self.inputField.text())
             doc = self.nlp(self.inputField.text())
+            print("here0")
             #sentenceConstTrees = []
             #self.treeView.setText(None)
             for sent in doc.sentences:
                 #print(TreePrettyPrinter(Tree.fromstring(str(sent.constituency))).text() + '\n')
-
+                import _tkinter
+                print(_tkinter.TK_VERSION)
+                print(os.getcwd())
                 #self.treeView.setText(TreePrettyPrinter(Tree.fromstring(str(sent.constituency))).text() + '\n')
-                TreeView(Tree.fromstring(str(sent.constituency)))._cframe.print_to_file('./src/DRAGNGraph/imgs/tree.ps')
-                psimg = Image.open('./src/DRAGNGraph/imgs/tree.ps').copy()
-                #psimg.save('tree.png')
-                #psimg.show()
-                self.fig.setPixmap(QPixmap.fromImage(ImageQt(psimg)))
+            
+                thePath = './src/DRAGNGraph/imgs/tree.ps'
+
+                #TreeView(Tree.fromstring(str(sent.constituency)))._cframe.print_to_file(thePath)
+                print("here1")
+                #psimg = Image.open(thePath).copy()
+                print("here2")
+                
+                
+                #self.fig.setPixmap(QPixmap.fromImage(ImageQt(psimg)))
+                
+                print("here3")
                 #os.system('convert tree.ps tree.png')
                 self._halfLayout.update()
 
@@ -158,10 +174,28 @@ class MainWindow(QMainWindow):
         groupBox.setTitle('RIGHT - LOWER')
         groupBox.setFixedWidth(399)
         groupBox.setFixedHeight(299)
-        formLayout = QHBoxLayout()
+        formLayout = QVBoxLayout()
 
+        class MplCanvas(FigureCanvasQTAgg):
+            def __init__(self, parent=None, width=5, height=4, dpi=100):
+                fig = Figure(figsize=(width, height), dpi=dpi)
+                self.axes = fig.add_subplot(111)
+                super(MplCanvas, self).__init__(fig)
+        
+        sc = MplCanvas(self, width=5, height=4, dpi=100)
+        sc.axes.plot([0,1,2,3,4], [10,1,20,3,40])
+
+        # Create toolbar, passing canvas as first parament, parent (self, the MainWindow) as second.
+        toolbar = NavigationToolbar(sc, self)
+
+        formLayout.addWidget(toolbar)
+        formLayout.addWidget(sc)
+
+        # Create a placeholder widget to hold our toolbar and canvas.
         groupBox.setLayout(formLayout)
         self._halfLayout.addWidget(groupBox, 2, 1, 2, 1)
+
+        
 
 if __name__ == "__main__":
     print('Loading...')
