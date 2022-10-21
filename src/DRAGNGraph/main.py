@@ -1,6 +1,10 @@
 from stat import filemode
 import sys
 import os
+
+import networkx as nx
+from wiki_chase_2 import *
+
 import PyQt5
 from PyQt5 import QtCore
 from PIL import Image
@@ -21,8 +25,11 @@ from matplotlib.figure import Figure
 #Image.gs_windows_binary = r'C:\Program Files\gs\gs10.00.0\bin\gswin64c.exe'
 
 class MainWindow(QMainWindow):
-    def __init__(self, allowEmptyInput=False, parent=None):
+    def __init__(self, allowEmptyInput=False, parent=None, width=800, height=600):
         super().__init__(parent)
+        
+        self.graph = load_object('./src/DRAGNGraph/graphs/Guinea.pkl')
+        
         self.createUI()
         self.createMenu()
         self.createLeftHalf()
@@ -30,11 +37,12 @@ class MainWindow(QMainWindow):
         self.line = 0
         self.aei = allowEmptyInput
         self.nlp = stanza.Pipeline('en', processors='tokenize,lemma,pos,depparse,constituency,ner', use_gpu=False, pos_batch_size=3000)
+        self.resize(width, height)
         #800 x 600
 
     def createUI(self):
         self.setWindowTitle("DRAGNGraph - Demo")
-        self.resize(800, 600)
+        #self.resize(800, 600)
         self._centralWidget = QWidget()
         self._halfLayout = QGridLayout()
         self._centralWidget.setLayout(self._halfLayout)
@@ -80,8 +88,7 @@ class MainWindow(QMainWindow):
     def createUpperLeft(self):
         groupBox = QGroupBox()
         groupBox.setTitle('LEFT - UPPER')
-        groupBox.setFixedWidth(399)
-        groupBox.setFixedHeight(499)
+        groupBox.resize(self.width()//2, 8*self.height()//10)
         formLayout = QHBoxLayout()
         self.chatBox = QTextEdit()
         self.chatBox.setReadOnly(True)
@@ -89,13 +96,12 @@ class MainWindow(QMainWindow):
 
 
         groupBox.setLayout(formLayout)
-        self._halfLayout.addWidget(groupBox, 0, 0, 3, 1)
+        self._halfLayout.addWidget(groupBox, 0, 0, 8, 1)
 
     def createLowerLeft(self):
         groupBox = QGroupBox()
         groupBox.setTitle('LEFT - LOWER')
-        groupBox.setFixedWidth(399)
-        groupBox.setFixedHeight(99)
+        groupBox.resize(self.width()//2, 2*self.height()//10)
         formLayout = QHBoxLayout()
         
         inputLabel = QLabel("Input:")
@@ -108,7 +114,7 @@ class MainWindow(QMainWindow):
         formLayout.addWidget(submitButton)
 
         groupBox.setLayout(formLayout)
-        self._halfLayout.addWidget(groupBox, 3, 0)
+        self._halfLayout.addWidget(groupBox, 8, 0, 2, 1)
 
     def submitClicked(self):
         print("here0.0")
@@ -141,9 +147,7 @@ class MainWindow(QMainWindow):
                 #os.system('convert tree.ps tree.png')
                 self._halfLayout.update()
 
-            self.inputField.setText(None)
-
-            
+            self.inputField.setText(None)         
 
     def reply(self, inputText):
         replyText = "This is a default reply."
@@ -157,33 +161,35 @@ class MainWindow(QMainWindow):
     def createUpperRight(self):
         groupBox = QGroupBox()
         groupBox.setTitle('RIGHT - UPPER')
-        groupBox.setFixedWidth(399)
-        groupBox.setFixedHeight(299)
+        groupBox.resize(self.width()//2, 3*self.height()//10)
         formLayout = QHBoxLayout()
-
-        #self.treeView.setFont(QFont('Arial', 10))
-        #self.treeView.setReadOnly(True)
         self.fig = QLabel()
         formLayout.addWidget(self.fig)
 
         groupBox.setLayout(formLayout)
-        self._halfLayout.addWidget(groupBox, 0, 1, 2, 1)
+        self._halfLayout.addWidget(groupBox, 0, 1, 3, 1)
 
     def createLowerRight(self):
         groupBox = QGroupBox()
         groupBox.setTitle('RIGHT - LOWER')
-        groupBox.setFixedWidth(399)
-        groupBox.setFixedHeight(299)
+        groupBox.resize(self.width()//2, 7*self.height()//10)
         formLayout = QVBoxLayout()
 
         class MplCanvas(FigureCanvasQTAgg):
-            def __init__(self, parent=None, width=5, height=4, dpi=100):
-                fig = Figure(figsize=(width, height), dpi=dpi)
-                self.axes = fig.add_subplot(111)
-                super(MplCanvas, self).__init__(fig)
-        
-        sc = MplCanvas(self, width=5, height=4, dpi=100)
-        sc.axes.plot([0,1,2,3,4], [10,1,20,3,40])
+            def __init__(self, parent, width=4, height=4, dpi=200):
+                self.figure = plt.figure(figsize=(width,height), dpi=dpi)
+                self.figure.set_tight_layout(True)
+                super(MplCanvas, self).__init__(self.figure)
+            def draw_graph(self, G):
+                self.figure.clf()
+                nx.draw_networkx(G)
+                
+                
+
+        print(self.graph)
+        sc = MplCanvas(self, width=3, height=3, dpi=100)
+        #sc.axes.plot([0,1,2,3,4], [10,1,20,3,40])
+        sc.draw_graph(self.graph)
 
         # Create toolbar, passing canvas as first parament, parent (self, the MainWindow) as second.
         toolbar = NavigationToolbar(sc, self)
@@ -191,14 +197,39 @@ class MainWindow(QMainWindow):
         formLayout.addWidget(toolbar)
         formLayout.addWidget(sc)
 
+        wiki_widget = QWidget()
+        wiki_widget.setMaximumHeight(self.height()//10)
+        horz_form = QHBoxLayout()
+        wikiLabel = QLabel("Wiki URL:")
+        wikiInput = QLineEdit()
+        wikiSubmit = QPushButton()
+        wikiSubmit.setText("Wiki")
+        horz_form.addWidget(wikiLabel)
+        horz_form.addWidget(wikiInput)
+        horz_form.addWidget(wikiSubmit)
+        wiki_widget.setLayout(horz_form)
+
+        formLayout.addWidget(wiki_widget)
+
+
         # Create a placeholder widget to hold our toolbar and canvas.
         groupBox.setLayout(formLayout)
-        self._halfLayout.addWidget(groupBox, 2, 1, 2, 1)
+        self._halfLayout.addWidget(groupBox, 3, 1, 7, 1)
 
         
 
 if __name__ == "__main__":
     print('Loading...')
+    #from tkinter import * 
+    #from tkinter.ttk import *
+    # creating tkinter window
+    #root = Tk()
+    # getting screen's height in pixels
+    #height = root.winfo_screenheight()
+    # getting screen's width in pixels
+    #width = root.winfo_screenwidth()
+    #print("\n width x height = %d x %d (in pixels)\n" %(width, height))
+
     app = QApplication(sys.argv)
     mw = MainWindow(False)
     mw.show()

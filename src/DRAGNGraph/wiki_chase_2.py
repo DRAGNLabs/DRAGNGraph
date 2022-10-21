@@ -256,6 +256,29 @@ def main():
     I = I.subgraph(nx.shortest_path(I.to_undirected(), goal_title))
     show_graph(I)
 
+def extract_and_save(urls, tokenizer, model):
+    print("Graph Loading...")
+    url, soup = update_url(urls)
+    curr_title = soup.find('title').contents[0]
+    curr_title = curr_title[:-12]
+    print(curr_title)
+    paragraphs = soup.find_all("p")
+    paragraphs = [paragraph for paragraph in paragraphs if paragraph.parent.has_attr('class') and paragraph.parent['class'] == ['mw-parser-output'] and not paragraph.has_attr('class')]
+    if len(paragraphs) > 6:
+        paragraphs = paragraphs[:6]
+    valid_links, G = get_valid_links(paragraphs, curr_title, tokenizer, model)
+    save_object(G, './{}.pkl'.format(curr_title))
+
+def save_wikipage():
+    goal = ""
+    urls = ['https://en.wikipedia.org/wiki/Guinea']
+    path = []
+    graphs = []
+    # Load model and tokenizer
+    tokenizer = AutoTokenizer.from_pretrained("Babelscape/rebel-large")
+    model = AutoModelForSeq2SeqLM.from_pretrained("Babelscape/rebel-large")
+    extract_and_save(urls, tokenizer, model)
 
 if __name__ == "__main__":
-    main()
+    #main()
+    save_wikipage()
