@@ -86,8 +86,10 @@ class MainWindow(QMainWindow):
     def __init__(self, allowEmptyInput=False, parent=None, width=800, height=600):
         super().__init__(parent)
         
-        self.graph = load_object('./src/DRAGNGraph/graphs/Guinea.pkl')
-        
+        try:
+            self.graph = load_object('./src/DRAGNGraph/graphs/Guinea.pkl')
+        except:
+            self.graph = None
         self.createUI()
         self.createMenu()
         self.createLeftHalf()
@@ -244,12 +246,12 @@ class MainWindow(QMainWindow):
                 self.figure.clf()
                 nx.draw_networkx(G)
                 
-                
-
-        print(self.graph)
         self.sc = MplCanvas(self, width=3, height=3, dpi=100)
-        #sc.axes.plot([0,1,2,3,4], [10,1,20,3,40])
-        self.sc.draw_graph(self.graph)
+
+        #print(self.graph)
+        if self.graph != None:
+            #sc.axes.plot([0,1,2,3,4], [10,1,20,3,40])
+            self.sc.draw_graph(self.graph)
 
         # Create toolbar, passing canvas as first parament, parent (self, the MainWindow) as second.
         toolbar = NavigationToolbar(self.sc, self)
