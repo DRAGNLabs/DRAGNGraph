@@ -18,7 +18,7 @@ from nltk.tree.prettyprinter import TreePrettyPrinter
 from nltk.draw.tree import TreeView
 from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow,\
      QAction, QGroupBox, QFormLayout, QHBoxLayout, QVBoxLayout, QLabel, QLineEdit,\
-        QPushButton, QGridLayout, QTextEdit, QTextBrowser
+        QPushButton, QGridLayout, QTextEdit, QTextBrowser, QSplashScreen
 
 import matplotlib
 matplotlib.use('Qt5Agg')
@@ -104,6 +104,7 @@ class MainWindow(QMainWindow):
 
     def createUI(self):
         self.setWindowTitle("DRAGNGraph - Demo")
+        self.setWindowIcon(QIcon("./src/DRAGNGraph/imgs/DRAGNlogo.png"))
         #self.resize(800, 600)
         self._centralWidget = QWidget()
         self._halfLayout = QGridLayout()
@@ -311,6 +312,9 @@ class MainWindow(QMainWindow):
 
 if __name__ == "__main__":
     print('Loading...')
+    app = QApplication(sys.argv)
+    splash_object = QSplashScreen(QPixmap("./src/DRAGNGraph/imgs/DRAGNlogo.png"))
+    splash_object.show()
     #from tkinter import * 
     #from tkinter.ttk import *
     # creating tkinter window
@@ -321,8 +325,9 @@ if __name__ == "__main__":
     #width = root.winfo_screenwidth()
     #print("\n width x height = %d x %d (in pixels)\n" %(width, height))
 
-    app = QApplication(sys.argv)
+    
     mw = MainWindow(False)
+    splash_object.close()
     mw.show()
     #app.exec()
     sys.exit(app.exec_())
