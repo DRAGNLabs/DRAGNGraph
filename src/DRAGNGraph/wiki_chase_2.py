@@ -267,7 +267,8 @@ def extract_and_save(urls, tokenizer, model):
     if len(paragraphs) > 6:
         paragraphs = paragraphs[:6]
     valid_links, G = get_valid_links(paragraphs, curr_title, tokenizer, model)
-    save_object(G, './{}.pkl'.format(curr_title))
+    save_object(G, './src/DRAGNGraph/graphs/{}.pkl'.format(curr_title))
+    return curr_title
 
 def save_wikipage():
     goal = ""

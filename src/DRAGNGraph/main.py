@@ -1,12 +1,14 @@
 from stat import filemode
-import sys
+import time
+import traceback, sys
 import os
+from multiprocessing.dummy import Pool
 
 import networkx as nx
 from wiki_chase_2 import *
 
 import PyQt5
-from PyQt5 import QtCore
+from PyQt5.QtCore import *
 from PIL import Image
 from PIL.ImageQt import ImageQt
 from PyQt5.QtGui import *
@@ -24,6 +26,62 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationTool
 from matplotlib.figure import Figure
 #Image.gs_windows_binary = r'C:\Program Files\gs\gs10.00.0\bin\gswin64c.exe'
 
+class WorkerSignals(QObject):
+    '''
+    Defines the signals available from a running worker thread.
+
+    Supported signals are:
+
+    finished
+        No data
+
+    error
+        tuple (exctype, value, traceback.format_exc() )
+
+    result
+        object data returned from processing, anything
+
+    progress
+        int indicating % progress
+
+    '''
+    finished = pyqtSignal()
+    error = pyqtSignal(tuple)
+    result = pyqtSignal(object)
+    progress = pyqtSignal(int)
+
+
+class Worker(QRunnable):
+    #finished = pyqtSignal()
+    #progress = pyqtSignal(int)
+
+    def __init__(self, fn, *args, **kwargs):
+        super(Worker, self).__init__()
+
+        # Store constructor arguments (re-used for processing)
+        self.fn = fn
+        self.args = args
+        self.kwargs = kwargs
+        self.signals = WorkerSignals()
+
+        # Add the callback to our kwargs
+        #self.kwargs['progress_callback'] = self.signals.progress
+    
+    @pyqtSlot()
+    def run(self):
+        # Retrieve args/kwargs here; and fire processing using them
+        try:
+            result = self.fn(*self.args, **self.kwargs)
+        except:
+            traceback.print_exc()
+            exctype, value = sys.exc_info()[:2]
+            self.signals.error.emit((exctype, value, traceback.format_exc()))
+        else:
+            self.signals.result.emit(result)  # Return the result of the processing
+        finally:
+            self.signals.finished.emit()  # Done
+
+
 class MainWindow(QMainWindow):
     def __init__(self, allowEmptyInput=False, parent=None, width=800, height=600):
         super().__init__(parent)
@@ -38,6 +96,8 @@ class MainWindow(QMainWindow):
         self.aei = allowEmptyInput
         self.nlp = stanza.Pipeline('en', processors='tokenize,lemma,pos,depparse,constituency,ner', use_gpu=False, pos_batch_size=3000)
         self.resize(width, height)
+        self.tokenizer = AutoTokenizer.from_pretrained("Babelscape/rebel-large")
+        self.model = AutoModelForSeq2SeqLM.from_pretrained("Babelscape/rebel-large")
         #800 x 600
 
     def createUI(self):
@@ -117,33 +177,33 @@ class MainWindow(QMainWindow):
         self._halfLayout.addWidget(groupBox, 8, 0, 2, 1)
 
     def submitClicked(self):
-        print("here0.0")
+        #print("here0.0")
         if self.inputField.text() != '' or self.aei == True:
             self.chatBox.insertPlainText("[{}] ".format(self.line) + "USER: " + self.inputField.text() + '\n\n')
             self.line += 1
             self.reply(self.inputField.text())
             doc = self.nlp(self.inputField.text())
-            print("here0")
+            #print("here0")
             #sentenceConstTrees = []
             #self.treeView.setText(None)
             for sent in doc.sentences:
                 #print(TreePrettyPrinter(Tree.fromstring(str(sent.constituency))).text() + '\n')
                 import _tkinter
-                print(_tkinter.TK_VERSION)
-                print(os.getcwd())
+                #print(_tkinter.TK_VERSION)
+                #print(os.getcwd())
                 #self.treeView.setText(TreePrettyPrinter(Tree.fromstring(str(sent.constituency))).text() + '\n')
             
                 thePath = './src/DRAGNGraph/imgs/tree.ps'
 
                 #TreeView(Tree.fromstring(str(sent.constituency)))._cframe.print_to_file(thePath)
-                print("here1")
+                #print("here1")
                 #psimg = Image.open(thePath).copy()
-                print("here2")
+                #print("here2")
                 
                 
                 #self.fig.setPixmap(QPixmap.fromImage(ImageQt(psimg)))
                 
-                print("here3")
+                #print("here3")
                 #os.system('convert tree.ps tree.png')
                 self._halfLayout.update()
 
@@ -187,26 +247,27 @@ class MainWindow(QMainWindow):
                 
 
         print(self.graph)
-        sc = MplCanvas(self, width=3, height=3, dpi=100)
+        self.sc = MplCanvas(self, width=3, height=3, dpi=100)
         #sc.axes.plot([0,1,2,3,4], [10,1,20,3,40])
-        sc.draw_graph(self.graph)
+        self.sc.draw_graph(self.graph)
 
         # Create toolbar, passing canvas as first parament, parent (self, the MainWindow) as second.
-        toolbar = NavigationToolbar(sc, self)
+        toolbar = NavigationToolbar(self.sc, self)
 
         formLayout.addWidget(toolbar)
-        formLayout.addWidget(sc)
+        formLayout.addWidget(self.sc)
 
         wiki_widget = QWidget()
         wiki_widget.setMaximumHeight(self.height()//10)
         horz_form = QHBoxLayout()
         wikiLabel = QLabel("Wiki URL:")
-        wikiInput = QLineEdit()
-        wikiSubmit = QPushButton()
-        wikiSubmit.setText("Wiki")
+        self.wikiInput = QLineEdit()
+        self.wikiSubmit = QPushButton()
+        self.wikiSubmit.setText("Wiki")
+        self.wikiSubmit.clicked.connect(self.wikiClicked)
         horz_form.addWidget(wikiLabel)
-        horz_form.addWidget(wikiInput)
-        horz_form.addWidget(wikiSubmit)
+        horz_form.addWidget(self.wikiInput)
+        horz_form.addWidget(self.wikiSubmit)
         wiki_widget.setLayout(horz_form)
 
         formLayout.addWidget(wiki_widget)
@@ -216,7 +277,35 @@ class MainWindow(QMainWindow):
         groupBox.setLayout(formLayout)
         self._halfLayout.addWidget(groupBox, 3, 1, 7, 1)
 
-        
+    def wikiClicked(self):
+        if self.wikiInput.text() != '':
+            self.thr = QThreadPool()
+            self.worker = Worker(self.asyncgraph)
+            #self.worker.signals.result.connect(self.asyncdone)
+            self.worker.signals.finished.connect(self.asyncdone)
+            self.thr.start(self.worker)
+
+    def asyncdone(self):
+        print('ASYNC DONE!')
+        self.sc.draw()
+        self.wikiInput.setText(None)
+        self.wikiSubmit.setEnabled(True)
+        self.wikiInput.setEnabled(True)
+        self.update()
+
+    def asyncgraph(self):
+        # get url
+        urls = [""]
+        urls[0] = self.wikiInput.text()
+        self.wikiInput.setText("            ......LOADING......")
+        self.wikiInput.setEnabled(False)
+        self.wikiSubmit.setEnabled(False)
+        self.update()
+        # create new graph
+        title = extract_and_save(urls, self.tokenizer, self.model)
+        new_graph = load_object('./src/DRAGNGraph/graphs/{}.pkl'.format(title))
+        # set new graph to self.sc
+        self.sc.draw_graph(new_graph)
 
 if __name__ == "__main__":
     print('Loading...')
